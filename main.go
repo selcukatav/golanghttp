@@ -6,5 +6,7 @@ import (
 
 func main() {
 
-	server.Demo1()
+	//server.Run()
+
+	server.Main()
 }
