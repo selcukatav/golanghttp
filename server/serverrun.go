@@ -21,20 +21,21 @@ var users = []User{
 	{userName: "selcuk", password: "12345", role: "admin"},
 }
 
-type jwtCustomClaims struct {
+/*type jwtCustomClaims struct {
 	UserName string `json:"username"`
-	Password string `json:password`
+	Password string `json:"password"`
 	Role     string `json:"role"`
 	jwt.RegisteredClaims
-}
+}*/
 
-var jwtKey = []byte("my_secret_key")
+var jwtKey interface{} = []byte("my_secret_key")
 
 func Login(c echo.Context) error {
 	username := "selcuk"
 	password := "12345"
+	role := "admin"
 
-	user, err := authenticate(username, password)
+	user, err := authenticate(username, password, role)
 	if err != nil {
 		return echo.ErrUnauthorized
 	}
@@ -47,10 +48,12 @@ func Login(c echo.Context) error {
 	c.Set("user", tokenString)
 
 	cookie := &http.Cookie{
-		Name:    "token",
-		Value:   tokenString,
-		Expires: time.Now().Add(time.Hour * 4),
-		Path:    "/",
+		Name:     "token",
+		Value:    tokenString,
+		Expires:  time.Now().Add(time.Hour * 4),
+		Path:     "/",
+		Secure:   true,
+		HttpOnly: true,
 	}
 
 	c.SetCookie(cookie)
@@ -58,6 +61,13 @@ func Login(c echo.Context) error {
 		"token": tokenString,
 	})
 
+}
+
+func getJWTKey(token *jwt.Token) (interface{}, error) {
+	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		return nil, fmt.Errorf("error occurred at authorization")
+	}
+	return jwtKey, nil
 }
 
 func authorize(next echo.HandlerFunc) echo.HandlerFunc {
@@ -68,13 +78,9 @@ func authorize(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		tokenString := strings.Split(authHeader, "Bearer")[1]
+		cleanedToken := strings.TrimSpace(tokenString)
 
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("Error occured at authorization")
-			}
-			return jwtKey, nil
-		})
+		token, err := jwt.Parse(cleanedToken, getJWTKey)
 		if err != nil {
 			return echo.ErrUnauthorized
 		}
@@ -97,7 +103,7 @@ func generateToken(user *User) (string, error) {
 		"exp":      time.Now().Add(time.Hour * 24).Unix(),
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	tokenString, err := token.SignedString(jwtKey)
 
@@ -107,14 +113,14 @@ func generateToken(user *User) (string, error) {
 	return tokenString, nil
 }
 
-func authenticate(username, password string) (*User, error) {
+func authenticate(username, password, role string) (*User, error) {
 
 	for _, user := range users {
-		if user.userName == username && user.password == password {
+		if user.userName == username && user.password == password && user.role == role {
 			return &user, nil
 		}
 	}
-	return nil, fmt.Errorf("Error occured")
+	return nil, fmt.Errorf("error occured")
 
 }
 func accessible(c echo.Context) error {
@@ -138,7 +144,7 @@ func Main() {
 
 	// Restricted group
 	r := e.Group("/restricted")
-	r.Use(middleware.JWT([]byte(jwtKey)))
+	//r.Use(middleware.JWT([]byte(jwtKey)))
 
 	r.GET("/res", authorize(restricted))
 
