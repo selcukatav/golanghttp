@@ -1,12 +1,11 @@
 package main
 
-import (
-	"goserver/server"
-)
+import "goserver/server"
 
 func main() {
 
 	//server.Run()
 
 	server.Main()
+	//database.Main()
 }
