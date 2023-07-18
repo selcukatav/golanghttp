@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -9,35 +10,50 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type User struct {
-	userName string
-	password string
-	role     string
-}
-
-var users = []User{
-	{userName: "selcuk", password: "12345", role: "admin"},
-}
-
-type jwtCustomClaims struct {
-	UserName string `json:"username"`
-	Password string `json:password`
-	Role     string `json:"role"`
-	jwt.RegisteredClaims
+	ID       string `bson:"_id,omitempty"`
+	Username string `bson:"username"`
+	Password string `bson:"password"`
+	Role     string `bson:"role"`
 }
 
 var jwtKey = []byte("my_secret_key")
 
-func Login(c echo.Context) error {
-	username := "selcuk"
-	password := "12345"
+var client *mongo.Client
 
-	user, err := authenticate(username, password)
+func Init() {
+	var err error
+	client, err = mongo.Connect(context.TODO(), options.Client().ApplyURI("mongodb://localhost:27017"))
+	if err != nil {
+		fmt.Println("MongoDb connection error", err)
+		return
+	}
+
+	if err := client.Ping(context.TODO(), nil); err != nil {
+		fmt.Println("Mongodb Ping Error", err)
+		return
+	}
+
+	fmt.Println("Successfully connected to the MongoDb.")
+}
+func Login(c echo.Context) error {
+	username := c.FormValue("username")
+	password := c.FormValue("password")
+	role := c.FormValue("role")
+
+	//verifies user data if its correct or not
+
+	user, err := authenticate(username, password, role)
 	if err != nil {
 		return echo.ErrUnauthorized
 	}
+
+	//generates token
 
 	tokenString, err := generateToken(user)
 	if err != nil {
@@ -46,32 +62,41 @@ func Login(c echo.Context) error {
 
 	c.Set("user", tokenString)
 
+	//cookie elements
 	cookie := &http.Cookie{
-		Name:    "token",
-		Value:   tokenString,
-		Expires: time.Now().Add(time.Hour * 4),
-		Path:    "/",
+		Name:     "token",
+		Value:    tokenString,
+		Expires:  time.Now().Add(time.Hour * 4),
+		Path:     "/",
+		Secure:   true,
+		HttpOnly: true,
 	}
 
+	//creates cookie
 	c.SetCookie(cookie)
+
 	return c.JSON(http.StatusOK, echo.Map{
+		//outputs the tokenString
 		"token": tokenString,
 	})
 
 }
 
 func authorize(next echo.HandlerFunc) echo.HandlerFunc {
+
 	return func(c echo.Context) error {
-		authHeader := c.Request().Header.Get("Authorization")
-		if authHeader == "" {
+		//Take the authorization request key value
+		cookie, err := c.Cookie("token")
+		if err != nil {
 			return echo.ErrUnauthorized
 		}
+		//
+		tokenString := cookie.Value
+		cleanedToken := strings.TrimSpace(tokenString)
 
-		tokenString := strings.Split(authHeader, "Bearer")[1]
-
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		token, err := jwt.Parse(cleanedToken, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("Error occured at authorization")
+				return nil, fmt.Errorf("error occurred at authorization")
 			}
 			return jwtKey, nil
 		})
@@ -90,14 +115,15 @@ func authorize(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
+// create new token func
 func generateToken(user *User) (string, error) {
 	claims := jwt.MapClaims{
-		"username": user.userName,
-		"role":     user.role,
+		"username": user.Username,
+		"role":     user.Role,
 		"exp":      time.Now().Add(time.Hour * 24).Unix(),
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	tokenString, err := token.SignedString(jwtKey)
 
@@ -107,14 +133,28 @@ func generateToken(user *User) (string, error) {
 	return tokenString, nil
 }
 
-func authenticate(username, password string) (*User, error) {
+//authenticate the user
 
-	for _, user := range users {
-		if user.userName == username && user.password == password {
-			return &user, nil
-		}
+func authenticate(username, password, role string) (*User, error) {
+
+	if client == nil {
+		fmt.Println("client değişkeni nil.")
+
 	}
-	return nil, fmt.Errorf("Error occured")
+
+	collection := client.Database("GoServer").Collection("users")
+
+	filter := bson.M{"username": username, "password": password, "role": role}
+
+	var user User
+	err := collection.FindOne(context.Background(), filter).Decode(&user)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, fmt.Errorf("username or password is worng")
+		}
+		return nil, fmt.Errorf("error occured in authenticate")
+	}
+	return &user, nil
 
 }
 func accessible(c echo.Context) error {
@@ -128,6 +168,8 @@ func restricted(c echo.Context) error {
 func Main() {
 	e := echo.New()
 
+	Init()
+
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
@@ -138,9 +180,10 @@ func Main() {
 
 	// Restricted group
 	r := e.Group("/restricted")
-	r.Use(middleware.JWT([]byte(jwtKey)))
+	//r.Use(middleware.JWT([]byte(jwtKey)))
 
 	r.GET("/res", authorize(restricted))
 
 	e.Logger.Fatal(e.Start(":1323"))
+
 }
