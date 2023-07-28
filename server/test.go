@@ -1,4 +1,6 @@
-package handlers
+package server
+
+//Get ve Post işlemleri için
 
 import (
 	"encoding/json"
@@ -7,11 +9,11 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 )
 
 type User struct {
-	Id       int    `json:"id"`
+	Id       string `json:"id"`
 	UserName string `json:"name"`
 	UserPwd  string `json:"pwd"`
 }
@@ -21,11 +23,15 @@ func GetUsers(c echo.Context) error {
 	userName := c.QueryParam("name")
 	userPwd := c.QueryParam("pwd")
 
-	return c.String(http.StatusOK, fmt.Sprintf("Your Id : \n"+userId+"Your Name:\n "+userName+"Your password: \n"+userPwd))
+	return c.String(http.StatusOK, fmt.Sprintf("Your Id : %s, Your Name: %s, Your password: %s, ", userId, userName, userPwd))
 }
 
 func AddUser(c echo.Context) error {
-	user := User{}
+	user := User{
+		Id:       "1",
+		UserName: "selcuk",
+		UserPwd:  "12345",
+	}
 
 	b, err := ioutil.ReadAll(c.Request().Body)
 
@@ -41,4 +47,17 @@ func AddUser(c echo.Context) error {
 	}
 	log.Printf("The User is: %#v ", user)
 	return c.String(http.StatusOK, "The User is added.")
+}
+
+func MainPage(c echo.Context) error {
+	return c.String(http.StatusOK, "Welcome to main page")
+}
+
+func Main() {
+	e := echo.New()
+	e.GET("/users", GetUsers)
+	e.POST("/users", AddUser)
+	e.GET("/", MainPage)
+
+	e.Start(":8001")
 }

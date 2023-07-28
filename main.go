@@ -6,6 +6,8 @@ func main() {
 
 	//server.Run()
 
-	server.Main()
+	server.Run()
 	//database.Main()
+
+	//server.Main()
 }
