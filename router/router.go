@@ -2,35 +2,34 @@ package router
 
 import (
 	"goserver/api"
-	"goserver/api/middlewares"
+	"goserver/api/handlers"
+	"goserver/database"
 
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 )
 
-func New() *echo.Echo {
+func New(client *database.Mongo) *echo.Echo {
 	e := echo.New()
 
-	//create groups
-	adminGroup := e.Group("/admin")
+	r := handlers.AuthRoute{
+		Client: *client,
+	}
 
-	cookieGroup := e.Group("cookie")
+	resGroup := e.Group("/restricted")
 
-	jwtGroup := e.Group("/jwt")
+	e.GET("/", handlers.MainPage)
 
-	//set all middlewares
-	middlewares.SetMainMiddleware(e)
-	middlewares.SetAdminMiddleware(adminGroup)
-	middlewares.SetCookieMiddleware(cookieGroup)
-	middlewares.SetJwtMiddleware(jwtGroup)
+	e.GET("/login", handlers.GetLoginPage)
+	e.GET("/signup", handlers.GetSignupPage)
 
-	//set main routes
+	e.POST("/login", r.Login)
+	e.POST("/signup", handlers.SignUpHandler(client))
 
+	e.GET("/resetpassword", handlers.GetResetPassword)
+	e.POST("/resetpassword", handlers.ResetPasswordHandler(client))
+
+	api.ResGroup(resGroup)
 	api.MainGroup(e)
 
-	//set group routes
-
-	api.AdminGroup(adminGroup)
-	api.CookieGroup(cookieGroup)
-	api.JwtGroup(jwtGroup)
 	return e
 }
