@@ -1,8 +1,8 @@
 package server
 
 import (
+	"goserver/api/router"
 	"goserver/database"
-	"goserver/router"
 	"goserver/templates"
 	"log"
 )
