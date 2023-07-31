@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"goserver/database"
-	"goserver/templates"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -35,9 +34,4 @@ func SignUpHandler(client *database.Mongo) echo.HandlerFunc {
 		return signUp(c, client)
 
 	}
-}
-func GetLoginPage(c echo.Context) error {
-
-	return templates.Templates.ExecuteTemplate(c.Response(), "login.html", nil)
-
 }
