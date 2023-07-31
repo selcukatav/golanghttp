@@ -36,7 +36,8 @@ func SignUpHandler(client *database.Mongo) echo.HandlerFunc {
 
 	}
 }
-func GetSignupPage(c echo.Context) error {
+func GetLoginPage(c echo.Context) error {
 
-	return templates.Templates.ExecuteTemplate(c.Response(), "signup.html", nil)
+	return templates.Templates.ExecuteTemplate(c.Response(), "login.html", nil)
+
 }
