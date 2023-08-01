@@ -5,6 +5,8 @@ import (
 	"goserver/api/handlers"
 	"goserver/database"
 
+	echoSwagger "github.com/swaggo/echo-swagger"
+
 	"github.com/labstack/echo/v4"
 )
 
@@ -24,6 +26,7 @@ func New(client *database.Mongo) *echo.Echo {
 
 	e.POST("/login", r.Login)
 	e.POST("/signup", handlers.SignUpHandler(client))
+	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	e.GET("/resetpassword", handlers.GetResetPassword)
 	e.POST("/resetpassword", handlers.ResetPasswordHandler(client))
