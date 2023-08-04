@@ -1,4 +1,65 @@
+basePath: /v2
+definitions:
+  router.User:
+    properties:
+      id:
+        type: string
+      password:
+        type: string
+      role:
+        type: string
+      username:
+        type: string
+    type: object
+host: petstore.swagger.io
 info:
-  contact: {}
-paths: {}
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: This is a sample server Petstore server.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Swagger Example API
+  version: "1.0"
+paths:
+  /:
+    get:
+      description: Say hello to the user
+      operationId: hello-world
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Hello, World!
+          schema:
+            type: string
+      summary: Greet the user
+  /signup:
+    post:
+      consumes:
+      - application/json
+      description: Yeni bir kullanıcı hesabı oluşturma işlemi
+      operationId: user-signup
+      parameters:
+      - description: Kullanıcı bilgileri
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/router.User'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Kullanıcı başarıyla oluşturuldu!
+          schema:
+            type: string
+        "400":
+          description: Hatalı istek
+          schema:
+            type: string
+      summary: Kullanıcı kaydı
 swagger: "2.0"
